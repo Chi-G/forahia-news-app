@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class NewsController extends Controller
 {
@@ -25,6 +26,7 @@ class NewsController extends Controller
                 ]);
 
                 if ($response->failed()) {
+                    Log::error('Error fetching sources: ' . $response->body());
                     throw new \Exception($response->json('message'));
                 }
 
@@ -33,7 +35,8 @@ class NewsController extends Controller
 
             return response()->json($sources);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Error fetching sources: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch sources. Please try again later.'], 500);
         }
     }
 
@@ -48,6 +51,7 @@ class NewsController extends Controller
                 ]);
 
                 if ($response->failed()) {
+                    Log::error('Error fetching authors: ' . $response->body());
                     throw new \Exception($response->json('message'));
                 }
 
@@ -65,7 +69,8 @@ class NewsController extends Controller
 
             return response()->json(['authors' => $authors]);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Error fetching authors: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch authors. Please try again later.'], 500);
         }
     }
 
@@ -77,36 +82,45 @@ class NewsController extends Controller
             $from = $request->input('from', now()->subDays(rand(1, 30))->format('Y-m-d'));
             $to = $request->input('to', now()->format('Y-m-d'));
             $category = $request->input('category');
-            $pageSize = $request->input('pageSize', 500);
+            $pageSize = $request->input('pageSize',30); // Reduce the number of articles to 20
 
-            $params = [
-                'q' => $query,
-                'sources' => $sources,
-                'from' => $from,
-                'to' => $to,
-                'pageSize' => $pageSize,
-                'apiKey' => $this->apiKey,
-            ];
+            $cacheKey = md5("news_{$query}_{$sources}_{$from}_{$to}_{$category}_{$pageSize}");
+            $articles = Cache::remember($cacheKey, 60 * 60, function () use ($query, $sources, $from, $to, $category, $pageSize) {
+                $params = [
+                    'q' => $query,
+                    'sources' => $sources,
+                    'from' => $from,
+                    'to' => $to,
+                    'pageSize' => $pageSize,
+                    'apiKey' => $this->apiKey,
+                ];
 
-            if ($category) {
-                $params['category'] = $category;
-                $response = Http::get('https://newsapi.org/v2/top-headlines', $params);
-            } else {
-                $response = Http::get('https://newsapi.org/v2/everything', $params);
-            }
+                if ($category) {
+                    $params['category'] = $category;
+                    $response = Http::get('https://newsapi.org/v2/top-headlines', $params);
+                } else {
+                    $response = Http::get('https://newsapi.org/v2/everything', $params);
+                }
 
-            if ($response->failed()) {
-                return response()->json(['error' => $response->json('message')], $response->status());
-            }
+                if ($response->failed()) {
+                    Log::error('Error fetching news: ' . $response->body());
+                    throw new \Exception($response->json('message'));
+                }
 
-            $articles = $response->json()['articles'];
+                return $response->json()['articles'];
+            });
+
             if (empty($articles)) {
                 return response()->json(['message' => 'No article available at this moment.'], 200);
             }
 
-            return response()->json($response->json());
+            return response()->json(['articles' => $articles, 'totalResults' => count($articles)]);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Error fetching news: ' . $e->getMessage());
+            if (strpos($e->getMessage(), 'Could not resolve host') !== false) {
+                return response()->json(['error' => 'Could not resolve host: newsapi.org. Please check your network connection.'], 500);
+            }
+            return response()->json(['error' => 'Failed to fetch news. Please try again later.'], 500);
         }
     }
 }
