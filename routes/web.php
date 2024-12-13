@@ -1,15 +1,21 @@
 <?php
+
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PreferencesController;
+use App\Http\Controllers\NewsController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Http\Controllers\PreferencesController;
-use App\Http\Controllers\NewsController;
 
-Route::get('/api/news/sources', [NewsController::class, 'getSources']);
-Route::get('/api/news/authors', [NewsController::class, 'getAuthors']);
-Route::get('/api/news/everything', [NewsController::class, 'getEverything']);
+// API routes
+Route::prefix('api')->group(function () {
+    Route::get('/news/search', [NewsController::class, 'search']);
+    Route::get('/news/sources', [NewsController::class, 'getSources']);
+    Route::get('/news/authors', [NewsController::class, 'getAuthors']);
+    Route::get('/news/everything', [NewsController::class, 'getEverything']);
+});
 
+// Web routes
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
@@ -19,11 +25,6 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-// routes for the preferences page
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
         return Inertia::render('Dashboard');

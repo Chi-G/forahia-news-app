@@ -1,29 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 const NewsSearch = ({ onSearch }) => {
     const [query, setQuery] = useState('');
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
-    const [category, setCategory] = useState([]);
+    const [category, setCategory] = useState('');
 
     useEffect(() => {
-        // Initialize multi-select tag only once
-        if (window.MultiSelectTag) {
-            new MultiSelectTag('category-select', {
-                placeholder: 'Select Category',
-                shadow: true,
-                rounded: true,
-                onChange: function (values) {
-                    setCategory(values);
-                    handleSearch();
-                }
+        const fetchData = async () => {
+            const response = await axios.get('/api/news/search', {
+                params: {
+                    q: query,
+                    from: from,
+                    to: to,
+                    category: category,
+                },
             });
-        }
-    }, []);
+            onSearch(response.data.articles);
+        };
 
-    const handleSearch = () => {
-        onSearch(query, from, to, category.join(','));
-    };
+        fetchData();
+    }, [query, from, to, category, onSearch]);
 
     return (
         <div>
@@ -31,43 +29,30 @@ const NewsSearch = ({ onSearch }) => {
             <input
                 type="text"
                 value={query}
-                onChange={(e) => {
-                    setQuery(e.target.value);
-                    handleSearch();
-                }}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search news"
                 className="w-full p-2 border rounded"
             />
             <input
                 type="date"
                 value={from}
-                onChange={(e) => {
-                    setFrom(e.target.value);
-                    handleSearch();
-                }}
+                onChange={(e) => setFrom(e.target.value)}
                 placeholder="From date"
                 className="w-full p-2 border rounded mt-2"
             />
             <input
                 type="date"
                 value={to}
-                onChange={(e) => {
-                    setTo(e.target.value);
-                    handleSearch();
-                }}
+                onChange={(e) => setTo(e.target.value)}
                 placeholder="To date"
                 className="w-full p-2 border rounded mt-2"
             />
             <select
-                id="category-select"
-                multiple
                 value={category}
-                onChange={(e) => {
-                    setCategory(Array.from(e.target.selectedOptions, option => option.value));
-                    handleSearch();
-                }}
+                onChange={(e) => setCategory(e.target.value)}
                 className="w-full p-2 border rounded mt-2"
             >
+                <option value="">Select Category</option>
                 <option value="business">Business</option>
                 <option value="entertainment">Entertainment</option>
                 <option value="general">General</option>

@@ -15,8 +15,8 @@ const Preferences = () => {
             try {
                 const authorsResponse = await axios.get('/api/news/authors');
                 const sourcesResponse = await axios.get('/api/news/sources');
-                setAuthors(authorsResponse.data.authors);
-                setSources(sourcesResponse.data.sources);
+                setAuthors(authorsResponse.data.authors.map(author => author.author)); // Extract author names
+                setSources(sourcesResponse.data.sources.map(source => source.source)); // Extract source names
             } catch (error) {
                 console.error('Error fetching options:', error);
             }
@@ -37,32 +37,22 @@ const Preferences = () => {
                 toastr.error('Failed to save preferences.');
             }
         } catch (error) {
-            toastr.error('An error occurred while saving preferences.');
-            console.error('Error saving preferences:', error);
+            toastr.error('Failed to save preferences.');
         }
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Preferences
-                </h2>
-            }
-        >
+        <AuthenticatedLayout>
             <Head title="Preferences" />
-
             <div className="p-6">
-                <h3 className="text-2xl font-bold text-center">Preferences</h3>
-                <p className="text-center">Adjust settings to personalize your experience on this platform.</p>
-                <hr className="my-4" />
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    <div className='text-center'>
+                <h2 className="text-2xl font-bold mb-4">Preferences</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
                         <h4 className="text-xl font-bold">Authors</h4>
-                        <p>Read news only from these authors listed below</p>
+                        <p>Select your preferred authors</p>
                         <div>
-                            {authors.map((author) => (
-                                <div key={author}>
+                            {authors.map((author, index) => (
+                                <div key={index}>
                                     <input
                                         type="checkbox"
                                         value={author}
@@ -84,11 +74,11 @@ const Preferences = () => {
                         <h4 className="text-xl font-bold">Sources</h4>
                         <p>Show me news from these sources below</p>
                         <div>
-                            {sources.map((source) => (
-                                <div key={source.id}>
+                            {sources.map((source, index) => (
+                                <div key={index}>
                                     <input
                                         type="checkbox"
-                                        value={source.id}
+                                        value={source}
                                         onChange={(e) => {
                                             const value = e.target.value;
                                             setSelectedSources((prev) =>
@@ -98,7 +88,7 @@ const Preferences = () => {
                                             );
                                         }}
                                     />
-                                    <label className="ml-2">{source.name}</label>
+                                    <label className="ml-2">{source}</label>
                                 </div>
                             ))}
                         </div>

@@ -16,7 +16,7 @@ const Dashboard = () => {
             try {
                 const response = await axios.get('/api/news/everything', {
                     params: {
-                        pageSize: 20, // Limit to 20 articles
+                        pageSize: 50, // Limit to 50 articles from each API
                     },
                 });
                 setArticles(response.data.articles);
@@ -30,29 +30,8 @@ const Dashboard = () => {
         fetchInitialNews();
     }, []);
 
-    const handleSearch = (query, from, to, category) => {
-        let filtered = articles;
-
-        if (query) {
-            filtered = filtered.filter(article =>
-                article.title.toLowerCase().includes(query.toLowerCase()) ||
-                article.description.toLowerCase().includes(query.toLowerCase())
-            );
-        }
-
-        if (from) {
-            filtered = filtered.filter(article => new Date(article.publishedAt) >= new Date(from));
-        }
-
-        if (to) {
-            filtered = filtered.filter(article => new Date(article.publishedAt) <= new Date(to));
-        }
-
-        if (category) {
-            filtered = filtered.filter(article => article.category && article.category.toLowerCase() === category.toLowerCase());
-        }
-
-        setFilteredArticles(filtered);
+    const handleSearch = (articles) => {
+        setFilteredArticles(articles);
     };
 
     const handleFilter = (type, selectedOptions) => {
@@ -63,7 +42,7 @@ const Dashboard = () => {
         }
 
         if (type === 'source' && selectedOptions.length > 0) {
-            filtered = filtered.filter(article => selectedOptions.includes(article.source.name));
+            filtered = filtered.filter(article => selectedOptions.includes(article.source));
         }
 
         setFilteredArticles(filtered);

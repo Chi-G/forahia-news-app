@@ -3,37 +3,16 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Models\News;
 
 class NewsController extends Controller
 {
-    protected $apiKey;
-
-    public function __construct()
-    {
-        $this->apiKey = env('NEWSAPI_KEY');
-    }
-
     public function getSources()
     {
         try {
-            $cacheKey = 'news_sources';
-            $sources = Cache::remember($cacheKey, 60 * 60, function () {
-                $response = Http::get('https://newsapi.org/v2/sources', [
-                    'apiKey' => $this->apiKey,
-                ]);
-
-                if ($response->failed()) {
-                    Log::error('Error fetching sources: ' . $response->body());
-                    throw new \Exception($response->json('message'));
-                }
-
-                return $response->json();
-            });
-
-            return response()->json($sources);
+            $sources = News::select('source')->distinct()->get();
+            return response()->json(['sources' => $sources]);
         } catch (\Exception $e) {
             Log::error('Error fetching sources: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to fetch sources. Please try again later.'], 500);
@@ -43,30 +22,7 @@ class NewsController extends Controller
     public function getAuthors()
     {
         try {
-            $cacheKey = 'news_authors';
-            $authors = Cache::remember($cacheKey, 60 * 60, function () {
-                $response = Http::get('https://newsapi.org/v2/everything', [
-                    'q' => 'news',
-                    'apiKey' => $this->apiKey,
-                ]);
-
-                if ($response->failed()) {
-                    Log::error('Error fetching authors: ' . $response->body());
-                    throw new \Exception($response->json('message'));
-                }
-
-                $articles = $response->json()['articles'];
-                $authors = [];
-
-                foreach ($articles as $article) {
-                    if (!empty($article['author']) && !in_array($article['author'], $authors)) {
-                        $authors[] = $article['author'];
-                    }
-                }
-
-                return $authors;
-            });
-
+            $authors = News::select('author')->distinct()->get();
             return response()->json(['authors' => $authors]);
         } catch (\Exception $e) {
             Log::error('Error fetching authors: ' . $e->getMessage());
@@ -77,50 +33,41 @@ class NewsController extends Controller
     public function getEverything(Request $request)
     {
         try {
-            $query = $request->input('q', 'news');
-            $sources = $request->input('sources');
-            $from = $request->input('from', now()->subDays(30)->format('Y-m-d'));
-            $to = $request->input('to', now()->format('Y-m-d'));
-            $category = $request->input('category');
-            $pageSize = $request->input('pageSize', 500); // Reduce the number of articles to 20
-
-            $cacheKey = md5("news_{$query}_{$sources}_{$from}_{$to}_{$category}_{$pageSize}");
-            $articles = Cache::remember($cacheKey, 60 * 60, function () use ($query, $sources, $from, $to, $category, $pageSize) {
-                $params = [
-                    'q' => $query,
-                    'sources' => $sources,
-                    'from' => $from,
-                    'to' => $to,
-                    'pageSize' => $pageSize,
-                    'apiKey' => $this->apiKey,
-                ];
-
-                if ($category) {
-                    $params['category'] = $category;
-                    $response = Http::get('https://newsapi.org/v2/top-headlines', $params);
-                } else {
-                    $response = Http::get('https://newsapi.org/v2/everything', $params);
-                }
-
-                if ($response->failed()) {
-                    Log::error('Error fetching news: ' . $response->body());
-                    throw new \Exception($response->json('message'));
-                }
-
-                return $response->json()['articles'];
-            });
-
-            if (empty($articles)) {
-                return response()->json(['message' => 'No article available at this moment.'], 200);
-            }
-
-            return response()->json(['articles' => $articles, 'totalResults' => count($articles)]);
+            $articles = News::orderByRaw("CASE WHEN source = 'The Guardian' THEN 1 WHEN source = 'The New York Times' THEN 2 ELSE 3 END, published_at DESC")->limit(150)->get();
+            return response()->json(['articles' => $articles, 'totalResults' => $articles->count()]);
         } catch (\Exception $e) {
             Log::error('Error fetching news: ' . $e->getMessage());
-            if (strpos($e->getMessage(), 'Could not resolve host') !== false) {
-                return response()->json(['error' => 'Could not resolve host: newsapi.org. Please check your network connection.'], 500);
-            }
             return response()->json(['error' => 'Failed to fetch news. Please try again later.'], 500);
         }
+    }
+
+    public function search(Request $request)
+    {
+        $query = News::query();
+
+        if ($request->filled('q')) {
+            $query->where('title', 'like', '%' . $request->input('q') . '%')
+                ->orWhere('description', 'like', '%' . $request->input('q') . '%');
+        }
+
+        if ($request->filled('from')) {
+            $query->whereDate('published_at', '>=', $request->input('from'));
+        }
+
+        if ($request->filled('to')) {
+            $query->whereDate('published_at', '<=', $request->input('to'));
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->input('category'));
+        }
+
+        if ($request->filled('sources')) {
+            $query->whereIn('source', explode(',', $request->input('sources')));
+        }
+
+        $articles = $query->orderByRaw("CASE WHEN source = 'The Guardian' THEN 1 WHEN source = 'The New York Times' THEN 2 ELSE 3 END, published_at DESC")->get();
+
+        return response()->json(['articles' => $articles]);
     }
 }
