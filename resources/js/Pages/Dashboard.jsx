@@ -1,25 +1,26 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
 import NewsSearch from '@/Components/NewsSearch';
 import NewsFilter from '@/Components/NewsFilter';
 import NewsList from '@/Components/NewsList';
-import { useState, useEffect } from 'react';
-import axios from 'axios';
 
-export default function Dashboard() {
+const Dashboard = () => {
     const [articles, setArticles] = useState([]);
+    const [filteredArticles, setFilteredArticles] = useState([]);
     const [totalResults, setTotalResults] = useState(0);
-    const [page, setPage] = useState(1);
 
     useEffect(() => {
         const fetchInitialNews = async () => {
             try {
                 const response = await axios.get('/api/news/everything', {
                     params: {
-                        page: page,
+                        pageSize: 20, // Limit to 20 articles
                     },
                 });
                 setArticles(response.data.articles);
+                setFilteredArticles(response.data.articles);
                 setTotalResults(response.data.totalResults);
             } catch (error) {
                 console.error('Error fetching initial news:', error);
@@ -27,22 +28,46 @@ export default function Dashboard() {
         };
 
         fetchInitialNews();
-    }, [page]);
-
-    const handleSearch = (results, total) => {
-        setArticles(results);
-        setTotalResults(total);
-    };
-
-    const handleScroll = () => {
-        if (window.innerHeight + document.documentElement.scrollTop !== document.documentElement.offsetHeight) return;
-        setPage(prevPage => prevPage + 1);
-    };
-
-    useEffect(() => {
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    const handleSearch = (query, from, to, category) => {
+        let filtered = articles;
+
+        if (query) {
+            filtered = filtered.filter(article =>
+                article.title.toLowerCase().includes(query.toLowerCase()) ||
+                article.description.toLowerCase().includes(query.toLowerCase())
+            );
+        }
+
+        if (from) {
+            filtered = filtered.filter(article => new Date(article.publishedAt) >= new Date(from));
+        }
+
+        if (to) {
+            filtered = filtered.filter(article => new Date(article.publishedAt) <= new Date(to));
+        }
+
+        if (category) {
+            filtered = filtered.filter(article => article.category && article.category.toLowerCase() === category.toLowerCase());
+        }
+
+        setFilteredArticles(filtered);
+    };
+
+    const handleFilter = (type, selectedOptions) => {
+        let filtered = articles;
+
+        if (type === 'author' && selectedOptions.length > 0) {
+            filtered = filtered.filter(article => selectedOptions.includes(article.author));
+        }
+
+        if (type === 'source' && selectedOptions.length > 0) {
+            filtered = filtered.filter(article => selectedOptions.includes(article.source.name));
+        }
+
+        setFilteredArticles(filtered);
+    };
 
     return (
         <AuthenticatedLayout
@@ -62,15 +87,20 @@ export default function Dashboard() {
                             <p className='text-center'>READ the news</p>
                             <br />
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                                <NewsSearch onSearch={handleSearch} totalResults={totalResults} />
-                                <NewsFilter type="author" onFilter={handleSearch} />
-                                <NewsFilter type="source" onFilter={handleSearch} />
+                                <NewsSearch onSearch={handleSearch} />
+                                <NewsFilter type="author" onFilter={handleFilter} />
+                                <NewsFilter type="source" onFilter={handleFilter} />
                             </div>
-                            <NewsList articles={articles} totalResults={totalResults} />
+                            <NewsList articles={filteredArticles} />
+                            {filteredArticles.length === 0 && (
+                                <p className="text-center mt-4">Sorry, no news matches this search at this time.</p>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
         </AuthenticatedLayout>
     );
-}
+};
+
+export default Dashboard;

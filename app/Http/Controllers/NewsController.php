@@ -79,10 +79,10 @@ class NewsController extends Controller
         try {
             $query = $request->input('q', 'news');
             $sources = $request->input('sources');
-            $from = $request->input('from', now()->subDays(rand(1, 30))->format('Y-m-d'));
+            $from = $request->input('from', now()->subDays(30)->format('Y-m-d'));
             $to = $request->input('to', now()->format('Y-m-d'));
             $category = $request->input('category');
-            $pageSize = $request->input('pageSize',30); // Reduce the number of articles to 20
+            $pageSize = $request->input('pageSize', 500); // Reduce the number of articles to 20
 
             $cacheKey = md5("news_{$query}_{$sources}_{$from}_{$to}_{$category}_{$pageSize}");
             $articles = Cache::remember($cacheKey, 60 * 60, function () use ($query, $sources, $from, $to, $category, $pageSize) {
