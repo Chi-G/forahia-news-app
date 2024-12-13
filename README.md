@@ -21,7 +21,7 @@ Forahia News App is a news aggregator application built with Laravel 11.3 that s
 ### Dashboard
 ![Dashboard](./images/dashboard.png)
 
-### Filter
+### Search Filter
 ![Search](./images/search.png)
 
 ### Preferences
