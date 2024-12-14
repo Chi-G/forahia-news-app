@@ -49,3 +49,14 @@ cp [.env.example](http://_vscodecontentref_/1) .env
 php artisan key:generate
 php artisan migrate
 npm run dev
+```
+
+### Docker setup
+```bash
+composer require laravel/sail --dev
+php artisan sail:install
+docker-compose up -d
+touch database/database.sqlite
+DB_CONNECTION=sqlite
+DB_DATABASE=/var/www/html/database/database.sqlite
+
